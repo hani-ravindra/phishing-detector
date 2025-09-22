@@ -1,74 +1,65 @@
+# app.py
+
 from flask import Flask, request, jsonify
-import pickle
+from flask_cors import CORS
+import joblib
 import numpy as np
 
-# -------------------------
-# 1️⃣ Initialize Flask App
-# -------------------------
+# Initialize the Flask application
 app = Flask(__name__)
+CORS(app)  # This will enable CORS for all routes
 
-# -------------------------
-# 2️⃣ Load Saved Model
-# -------------------------
-with open("phishing_model.pkl", "rb") as f:
-    model = pickle.load(f)
+# Load the trained model
+try:
+    model = joblib.load('phishing_detector_model.joblib')
+    print("Model loaded successfully!")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    model = None
 
-# -------------------------
-# 3️⃣ Health Check Routes
-# -------------------------
-@app.route("/")
+@app.route('/')
 def home():
-    return "✅ Phishing Detection Flask Server is running!"
+    return "Phishing Detector API is running!"
 
-@app.route("/ping")
-def ping():
-    return jsonify({"status": "ok"})
+# --- NEW DIAGNOSTIC ENDPOINT ---
+@app.route('/model_info')
+def model_info():
+    """Returns the number of features the loaded model expects."""
+    if model is not None:
+        # For scikit-learn compatible models, n_features_in_ stores the feature count
+        num_features = model.n_features_in_
+        return jsonify({'model_status': 'loaded', 'features_expected': num_features})
+    else:
+        return jsonify({'model_status': 'error', 'message': 'Model could not be loaded.'})
+# --- END NEW ENDPOINT ---
 
-# -------------------------
-# 4️⃣ Prediction Endpoint
-# -------------------------
-@app.route("/predict", methods=["POST"])
+
+@app.route('/predict', methods=['POST'])
 def predict():
+    if model is None:
+        return jsonify({'error': 'Model not available'}), 500
+
     try:
-        # Get JSON data
-        data = request.get_json()
+        data = request.get_json(force=True)
+        
+        feature_list = [
+            data['url_length'], data['hostname_length'], data['dot_count'],
+            data['slash_count'], data['has_ip'], data['has_special_chars'],
+            data['subdomain_count'], data['has_https'], data['has_sensitive_words'],
+            data['directory_count'], data['query_param_count'], data['is_shortened']
+        ]
 
-        if not data or "features" not in data:
-            return jsonify({
-                "status": "error",
-                "message": "Request must contain 'features' field with a list of values"
-            }), 400
-
-        features = data["features"]
-
-        # Validate feature length (expecting 30 features)
-        if not isinstance(features, list) or len(features) != 30:
-            return jsonify({
-                "status": "error",
-                "message": f"Expected 30 features, got {len(features)}"
-            }), 400
-
-        # Convert to numpy array & reshape
-        features = np.array(features).reshape(1, -1)
-
-        # Predict
-        prediction = int(model.predict(features)[0])
-        result = "Phishing" if prediction == 1 else "Legitimate"
-
-        return jsonify({
-            "status": "success",
-            "prediction": prediction,
-            "result": result
-        })
+        features = np.array(feature_list).reshape(1, -1)
+        prediction = model.predict(features)
+        result = 'phishing' if prediction[0] == 1 else 'legitimate'
+        return jsonify({'status': result})
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        # A more descriptive error for feature mismatch
+        if 'mismatch' in str(e):
+             error_msg = f"Feature shape mismatch, expected: {model.n_features_in_}, got {len(feature_list)}"
+             return jsonify({'error': f"An error occurred during prediction: {error_msg}"}), 400
+        return jsonify({'error': f'An error occurred: {e}'}), 400
 
-# -------------------------
-# 5️⃣ Run the App
-# -------------------------
-if __name__ == "__main__":
-    app.run(debug=True)
+if __name__ == '__main__':
+    app.run(port=5000, debug=True)
