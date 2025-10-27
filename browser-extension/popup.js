@@ -1,42 +1,57 @@
 //
-// --- popup.js ---
+// --- popup.js (Professional UI Version) ---
 //
 
-// This script runs when the user clicks the extension icon.
-
 document.addEventListener('DOMContentLoaded', () => {
-    const statusIcon = document.getElementById('status-icon');
+    // We only need to find the message element
     const statusMessage = document.getElementById('status-message');
+    // We can also find the logo if we want to change it
+    const statusLogo = document.getElementById('status-logo');
 
-    // Get the current active tab
+    // Function to update the popup's display
+    function updatePopup(data) {
+        if (data && data.status) {
+            if (data.status === 'phishing') {
+                // Set logo to a "warning" version (if you create one)
+                // statusLogo.src = 'icons/icon-warning.png'; 
+                statusMessage.textContent = 'Warning: Phishing Site!';
+                statusMessage.className = 'warning';
+            } else if (data.status === 'legitimate') {
+                // Set logo to a "safe" version (if you create one)
+                // statusLogo.src = 'icons/icon-safe.png';
+                statusMessage.textContent = 'This site looks safe.';
+                statusMessage.className = 'safe';
+            } else if (data.status === 'error') {
+                statusMessage.textContent = 'Could not get prediction.';
+                statusMessage.className = 'neutral';
+            }
+        } else {
+            // Default message
+            statusMessage.textContent = 'Analyzing...';
+            statusMessage.className = 'neutral';
+        }
+    }
+
+    // 1. Check for the status immediately when the popup opens
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const currentTab = tabs[0];
-        if (!currentTab) return;
+        if (!currentTab || !currentTab.id) return;
 
-        // Retrieve the saved status for this tab from chrome.storage
         chrome.storage.local.get(currentTab.id.toString(), (result) => {
             const data = result[currentTab.id.toString()];
+            updatePopup(data);
+        });
+    });
 
-            if (data) {
-                // Update the UI based on the stored status
-                if (data.status === 'phishing') {
-                    statusIcon.textContent = '⚠️';
-                    statusMessage.textContent = 'Warning: Phishing Site!';
-                    statusMessage.className = 'warning';
-                } else if (data.status === 'legitimate') {
-                    statusIcon.textContent = '✅';
-                    statusMessage.textContent = 'This site looks safe.';
-                    statusMessage.className = 'safe';
-                } else if (data.status === 'error') {
-                    statusIcon.textContent = '❓';
-                    statusMessage.textContent = 'Could not get a prediction.';
-                    statusMessage.className = 'neutral';
-                }
-            } else {
-                // Default message if no data is found
-                statusIcon.textContent = '🤔';
-                statusMessage.textContent = 'No analysis data for this page.';
-                statusMessage.className = 'neutral';
+    // 2. Listen for real-time changes
+    chrome.storage.onChanged.addListener((changes, namespace) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            const currentTab = tabs[0];
+            if (!currentTab || !currentTab.id) return;
+
+            if (changes[currentTab.id.toString()]) {
+                const newData = changes[currentTab.id.toString()].newValue;
+                updatePopup(newData);
             }
         });
     });

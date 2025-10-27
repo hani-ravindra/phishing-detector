@@ -5,24 +5,39 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            width: 250px;
-            padding: 10px;
-            text-align: center;
+            width: 280px; /* A bit wider for the new layout */
+            padding: 15px;
         }
         h1 {
             font-size: 18px;
             color: #333;
-            margin-bottom: 15px;
+            text-align: center;
+            margin: 0 0 15px 0;
         }
-        #status-icon {
-            font-size: 48px;
-            margin-bottom: 10px;
+        
+        /* This new container will hold the logo and message */
+        #status-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
         }
+        
+        /* This is our new logo */
+        #status-logo {
+            width: 120px;
+            height: 120px;
+            margin-right: 12px;
+            flex-shrink: 0; /* Prevents logo from shrinking */
+        }
+        
+        /* This is our message, which will change */
         #status-message {
             font-size: 16px;
             font-weight: bold;
-            margin-bottom: 15px;
+            margin: 0;
         }
+
+        /* Status colors */
         .safe { color: #28a745; }
         .warning { color: #dc3545; }
         .neutral { color: #6c757d; }
@@ -30,8 +45,12 @@
 </head>
 <body>
     <h1>Phishing Detector</h1>
-    <div id="status-icon"></div>
-    <p id="status-message" class="neutral">Checking page...</p>
+    
+    <div id="status-container">
+        <img id="status-logo" src="icons/icon48.png" alt="Status">
+        
+        <p id="status-message" class="neutral">Analyzing...</p>
+    </div>
 
     <script src="popup.js"></script>
 </body>

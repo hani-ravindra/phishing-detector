@@ -1,35 +1,17 @@
-// A list of trusted domains that we will not check.
-const WHITELIST = [
-    'google.com',
-    'wikipedia.org',
-    'youtube.com',
-    'facebook.com',
-    'amazon.com',
-    'github.com',
-    'linkedin.com'
-];
+//
+// --- background.js (Final Version - Whitelist Removed) ---
+// This version trusts the improved ML model to analyze all sites.
+//
 
 // Listen for any updates to a tab.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // We only want to act when the page has fully loaded and has a valid URL.
     if (changeInfo.status === 'complete' && tab.url && tab.url.startsWith('http')) {
 
-        const urlObj = new URL(tab.url);
-        const hostname = urlObj.hostname.replace('www.', ''); // Normalize by removing 'www.'
-
-        // --- WHITELIST CHECK ---
-        // If the site's hostname is in our whitelist, mark as legitimate and stop.
-        if (WHITELIST.some(domain => hostname.includes(domain))) {
-            console.log(hostname, 'is on the whitelist. Skipping check.');
-            chrome.storage.local.set({ [tabId]: { status: 'legitimate', url: tab.url } });
-            return; // Exit the function early
-        }
-
-        // If not on the whitelist, proceed with feature extraction and API call.
         const url = tab.url;
         const features = extractFeatures(url);
 
-        // Send the extracted features to your Flask API.
+        // Send the extracted features to your Flask API for every site.
         fetch('http://127.0.0.1:5000/predict', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -81,7 +63,7 @@ function extractFeatures(url) {
         has_https: urlObj.protocol === 'https:' ? 1 : 0,
         has_sensitive_words: ['login', 'secure', 'account', 'verify', 'password', 'signin', 'banking'].some(keyword => url.toLowerCase().includes(keyword)) ? 1 : 0,
         directory_count: (urlObj.pathname.match(/\//g) || []).length - 1,
-        query_param_count: (urlObj.search.match(/&/g) || []).length + (urlObj.search.includes('?') ? 1 : 0),
+        query_param_count: (urlObj.search.match(/&/g) || []).length + (new URL(url).search.includes('?') ? 1 : 0),
         is_shortened: ['bit.ly', 't.co', 'goo.gl', 'tinyurl', 'ow.ly'].some(shortener => urlObj.hostname.includes(shortener)) ? 1 : 0
     };
 }
