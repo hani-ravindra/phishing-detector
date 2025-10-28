@@ -5,7 +5,7 @@
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            width: 280px; /* A bit wider for the new layout */
+            width: 320px; /* Wider for more content */
             padding: 15px;
         }
         h1 {
@@ -15,41 +15,107 @@
             margin: 0 0 15px 0;
         }
         
-        /* This new container will hold the logo and message */
-        #status-container {
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
+        /* --- Views --- */
+        /* These act as "pages" that we show/hide */
+        .view {
+            display: none; /* Hidden by default */
         }
         
-        /* This is our new logo */
-        #status-logo {
+        /* --- Safe View --- */
+        #safe-view {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #safe-view img {
             width: 120px;
             height: 120px;
             margin-right: 12px;
-            flex-shrink: 0; /* Prevents logo from shrinking */
         }
-        
-        /* This is our message, which will change */
-        #status-message {
+        #safe-view p {
             font-size: 16px;
             font-weight: bold;
+            color: #28a745;
             margin: 0;
         }
+        
+        /* --- Warning View --- */
+        #warning-view {
+            text-align: center;
+        }
+        #warning-view h2 {
+            font-size: 22px;
+            font-weight: bold;
+            color: #dc3545;
+            margin: 10px 0;
+        }
+        #warning-view .awareness-msg {
+            font-size: 14px;
+            color: #333;
+            margin: 15px 0;
+            text-align: left;
+        }
+        
+        /* --- Feedback Area (Shared) --- */
+        .feedback-container {
+            border-top: 1px solid #eee;
+            margin-top: 20px;
+            padding-top: 15px;
+            text-align: center;
+        }
+        .feedback-container p {
+            font-size: 13px;
+            color: #6c757d;
+            margin: 0 0 10px 0;
+        }
+        .feedback-buttons button {
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 6px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+        .feedback-buttons button:hover {
+            background-color: #e9e9e9;
+        }
+        #feedback-thanks {
+            font-weight: bold;
+            color: #28a745;
+            display: none; /* Hide 'Thanks' message */
+        }
 
-        /* Status colors */
-        .safe { color: #28a745; }
-        .warning { color: #dc3545; }
-        .neutral { color: #6c757d; }
     </style>
 </head>
 <body>
     <h1>Phishing Detector</h1>
+
+    <div id="safe-view" class="view">
+        <img src="icons/icon48.png" alt="Safe">
+        <p>This site looks safe.</p>
+    </div>
+
+    <div id="warning-view" class="view">
+        <img src="icons/icon128.png" alt="Warning" width="64">
+        <h2>Phishing Site Warning!</h2>
+        <p class="awareness-msg">
+            This site has characteristics of a phishing attempt.
+            Do not enter sensitive information (like passwords or credit cards).
+        </p>
+    </div>
     
-    <div id="status-container">
-        <img id="status-logo" src="icons/icon48.png" alt="Status">
-        
-        <p id="status-message" class="neutral">Analyzing...</p>
+    <div id="neutral-view" class="view">
+        <p style="text-align: center; font-size: 16px; color: #6c757d;">Analyzing...</p>
+    </div>
+
+    <div class="feedback-container">
+        <p>Is this prediction correct?</p>
+        <div class="feedback-buttons">
+            <button id="report-safe-btn">Report as Safe</button>
+            <button id="report-phishing-btn">Report as Phishing</button>
+        </div>
+        <p id="feedback-thanks">Thank you for your feedback!</p>
     </div>
 
     <script src="popup.js"></script>

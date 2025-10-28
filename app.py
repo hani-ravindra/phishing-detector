@@ -1,15 +1,14 @@
-# app.py
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import joblib
 import numpy as np
+import pandas as pd
+import os # <-- Import the os library
 
-# Initialize the Flask application
 app = Flask(__name__)
-CORS(app)  # This will enable CORS for all routes
+CORS(app)
 
-# Load the trained model
+# --- Model Loading ---
 try:
     model = joblib.load('phishing_detector_model.joblib')
     print("Model loaded successfully!")
@@ -17,49 +16,74 @@ except Exception as e:
     print(f"Error loading model: {e}")
     model = None
 
+# --- Main API Routes ---
 @app.route('/')
 def home():
     return "Phishing Detector API is running!"
 
-# --- NEW DIAGNOSTIC ENDPOINT ---
-@app.route('/model_info')
-def model_info():
-    """Returns the number of features the loaded model expects."""
-    if model is not None:
-        # For scikit-learn compatible models, n_features_in_ stores the feature count
-        num_features = model.n_features_in_
-        return jsonify({'model_status': 'loaded', 'features_expected': num_features})
-    else:
-        return jsonify({'model_status': 'error', 'message': 'Model could not be loaded.'})
-# --- END NEW ENDPOINT ---
-
-
 @app.route('/predict', methods=['POST'])
 def predict():
-    if model is None:
-        return jsonify({'error': 'Model not available'}), 500
-
+    if not model:
+        return jsonify({'status': 'error', 'message': 'Model not loaded'}), 500
+    
     try:
-        data = request.get_json(force=True)
-        
+        features = request.json
+        # The order of features MUST match the training order
         feature_list = [
-            data['url_length'], data['hostname_length'], data['dot_count'],
-            data['slash_count'], data['has_ip'], data['has_special_chars'],
-            data['subdomain_count'], data['has_https'], data['has_sensitive_words'],
-            data['directory_count'], data['query_param_count'], data['is_shortened']
+            features['url_length'], features['hostname_length'], features['dot_count'],
+            features['slash_count'], features['has_ip'], features['has_special_chars'],
+            features['subdomain_count'], features['has_https'], features['has_sensitive_words'],
+            features['directory_count'], features['query_param_count'], features['is_shortened']
         ]
-
-        features = np.array(feature_list).reshape(1, -1)
-        prediction = model.predict(features)
-        result = 'phishing' if prediction[0] == 1 else 'legitimate'
-        return jsonify({'status': result})
-
+        
+        prediction = model.predict([feature_list])
+        status = 'phishing' if prediction[0] == 1 else 'legitimate'
+        return jsonify({'status': status})
+    
     except Exception as e:
-        # A more descriptive error for feature mismatch
-        if 'mismatch' in str(e):
-             error_msg = f"Feature shape mismatch, expected: {model.n_features_in_}, got {len(feature_list)}"
-             return jsonify({'error': f"An error occurred during prediction: {error_msg}"}), 400
-        return jsonify({'error': f'An error occurred: {e}'}), 400
+        return jsonify({'status': 'error', 'message': str(e)}), 400
 
+# --- NEW: Feedback Routes ---
+
+@app.route('/report_phishing', methods=['POST'])
+def report_phishing():
+    data = request.json
+    url = data.get('url')
+    if not url:
+        return jsonify({'status': 'error', 'message': 'No URL provided'}), 400
+    
+    # Save the reported URL to a file
+    feedback_file = 'reported_urls.csv'
+    new_data = pd.DataFrame({'URL': [url], 'Reported_As': ['phishing']})
+    
+    if not os.path.isfile(feedback_file):
+        new_data.to_csv(feedback_file, index=False)
+    else:
+        new_data.to_csv(feedback_file, mode='a', header=False, index=False)
+        
+    print(f"REPORT (PHISHING): {url}")
+    return jsonify({'status': 'success', 'message': 'Report received'})
+
+@app.route('/report_safe', methods=['POST'])
+def report_safe():
+    data = request.json
+    if not data or 'url' not in data:
+        return jsonify({'status': 'error', 'message': 'No URL provided'}), 400
+    
+    url = data.get('url')
+    
+    # Save the reported URL to a file
+    feedback_file = 'reported_urls.csv'
+    new_data = pd.DataFrame({'URL': [url], 'Reported_As': ['legitimate']})
+    
+    if not os.path.isfile(feedback_file):
+        new_data.to_csv(feedback_file, index=False)
+    else:
+        new_data.to_csv(feedback_file, mode='a', header=False, index=False)
+        
+    print(f"REPORT (SAFE): {url}")
+    return jsonify({'status': 'success', 'message': 'Report received'})
+
+# --- Run the App ---
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    app.run(debug=True)

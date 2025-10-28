@@ -1,42 +1,77 @@
 //
-// --- popup.js (Professional UI Version) ---
+// --- popup.js (Final Version with Feedback Loop) ---
 //
-
 document.addEventListener('DOMContentLoaded', () => {
-    // We only need to find the message element
-    const statusMessage = document.getElementById('status-message');
-    // We can also find the logo if we want to change it
-    const statusLogo = document.getElementById('status-logo');
+    // Get references to all our new UI elements
+    const safeView = document.getElementById('safe-view');
+    const warningView = document.getElementById('warning-view');
+    const neutralView = document.getElementById('neutral-view');
+    
+    const reportSafeBtn = document.getElementById('report-safe-btn');
+    const reportPhishingBtn = document.getElementById('report-phishing-btn');
+    
+    const feedbackButtons = document.querySelector('.feedback-buttons');
+    const feedbackThanks = document.getElementById('feedback-thanks');
 
-    // Function to update the popup's display
+    let currentUrl = ''; // Store the tab's URL
+    
+    // --- Main Function to Update the UI ---
     function updatePopup(data) {
+        // Hide all views first
+        safeView.style.display = 'none';
+        warningView.style.display = 'none';
+        neutralView.style.display = 'block'; // Show 'Analyzing' by default
+
         if (data && data.status) {
             if (data.status === 'phishing') {
-                // Set logo to a "warning" version (if you create one)
-                // statusLogo.src = 'icons/icon-warning.png'; 
-                statusMessage.textContent = 'Warning: Phishing Site!';
-                statusMessage.className = 'warning';
+                neutralView.style.display = 'none';
+                warningView.style.display = 'block';
             } else if (data.status === 'legitimate') {
-                // Set logo to a "safe" version (if you create one)
-                // statusLogo.src = 'icons/icon-safe.png';
-                statusMessage.textContent = 'This site looks safe.';
-                statusMessage.className = 'safe';
-            } else if (data.status === 'error') {
-                statusMessage.textContent = 'Could not get prediction.';
-                statusMessage.className = 'neutral';
+                neutralView.style.display = 'none';
+                safeView.style.display = 'block';
             }
-        } else {
-            // Default message
-            statusMessage.textContent = 'Analyzing...';
-            statusMessage.className = 'neutral';
         }
     }
 
-    // 1. Check for the status immediately when the popup opens
+    // --- Function to send feedback to the API ---
+    function sendFeedback(status) {
+        const endpoint = status === 'safe' ? '/report_safe' : '/report_phishing';
+        
+        fetch(`http://127.0.0.1:5000${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: currentUrl }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Show 'Thank you' message
+                feedbackButtons.style.display = 'none';
+                feedbackThanks.style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error sending feedback:', error);
+        });
+    }
+
+    // --- Add Click Listeners for Feedback ---
+    reportSafeBtn.addEventListener('click', () => {
+        sendFeedback('safe');
+    });
+
+    reportPhishingBtn.addEventListener('click', () => {
+        sendFeedback('phishing');
+    });
+
+    // --- Logic to get current tab and status ---
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const currentTab = tabs[0];
         if (!currentTab || !currentTab.id) return;
+        
+        currentUrl = currentTab.url; // Save the URL for feedback
 
+        // 1. Check storage immediately on open
         chrome.storage.local.get(currentTab.id.toString(), (result) => {
             const data = result[currentTab.id.toString()];
             updatePopup(data);
